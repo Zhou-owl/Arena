@@ -188,7 +188,7 @@ ASSO_FUNCS = {"iou": iou_batch, "giou": giou_batch, "ciou": ciou_batch, "diou": 
 class OCSort(object):
     def __init__(
         self,
-        det_thresh=0.05,
+         det_thresh=0.05,
         max_age=50,
         min_hits=3,
         iou_threshold=0.3,

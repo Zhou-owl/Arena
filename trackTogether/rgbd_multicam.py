@@ -17,7 +17,7 @@ conf_thred = 0.5
 # define model
 model_tripod = YOLO('./runs/detect/train/weights/best.pt')  
 model_basic = YOLO('./yolov8l-seg.pt')  
-
+print(model_basic.names)
 # init tag detector
 at_detector = Detector(families='tag36h11')
 
@@ -25,6 +25,8 @@ at_detector = Detector(families='tag36h11')
 device_list = rs.context()
 device_serials = [i.get_info(rs.camera_info.serial_number) for i in device_list.devices]
 
+
+target_object_list = [0,5,39,56,58,67,73]
 
 # init camera intrinsic params
 def init_params():
@@ -101,7 +103,9 @@ window = sg.Window('camera',
 # init oc-sort tracker
 tracker = {}
 for cam_id in device_serials:
-    tracker[cam_id] = OCSort(det_thresh=0.7,iou_threshold=0.5)
+    tracker[cam_id] = {}
+    for obj_class in target_object_list:
+        tracker[cam_id][obj_class] = OCSort(det_thresh=0.7,iou_threshold=0.5)
 
 
 # start streaming
@@ -334,18 +338,26 @@ while True:
 
     if values['tracker']:
         for cam_id, pred in preds.items():
+            # all pred in each cam
             boxes = pred[0].boxes.xyxy.tolist() # bounding box of all detected objects
-            classes = pred[0].boxes.cls.tolist()    # class number of all detected objects
+            classes = pred[0].boxes.cls.tolist()   # class number of all detected objects
             confidences = pred[0].boxes.conf.tolist()
-            np_box = np.array(boxes)
-            np_score = np.array(confidences).reshape((-1,1))
-            np_class = np.array(classes).reshape((-1,1))
-            detected_objects = np.concatenate((np_box,np_score,np_class), axis=1)
-            tracked_objects = tracker[cam_id].update(detected_objects)
-            for idx,obj in enumerate(tracked_objects):
-                x1,y1,x2,y2,tracked_id,cla,conf =  obj
-                cv2.rectangle(depth_colormaps[cam_id],(int(x1),int(y1)),(int(x2),int(y2)),color=(255,0,0),thickness=3)
-                cv2.putText(depth_colormaps[cam_id],str(tracked_id),(int(x2),int(y2)),thickness=2,fontFace=cv2.FONT_HERSHEY_SIMPLEX,fontScale=3,color=(0,0,255))
+            split_dict = {}
+            for box, cla, conf in zip(boxes,classes,confidences):
+                concat_row = box+[conf,cla]
+                if cla not in split_dict.keys():
+                    split_dict[cla] = np.array([concat_row])
+                else:
+                    split_dict[cla] = np.vstack((split_dict[cla],concat_row))
+
+            for cla, info in split_dict.items():
+                if cla not in target_object_list:
+                    continue
+                tracked_objects = tracker[cam_id][cla].update(split_dict[cla])
+                for idx,obj in enumerate(tracked_objects):
+                    x1,y1,x2,y2,tracked_id,cla,conf =  obj
+                    cv2.rectangle(depth_colormaps[cam_id],(int(x1),int(y1)),(int(x2),int(y2)),color=(255,0,0),thickness=3)
+                    cv2.putText(depth_colormaps[cam_id],str(tracked_id),(int(x2),int(y2)),thickness=2,fontFace=cv2.FONT_HERSHEY_SIMPLEX,fontScale=3,color=(0,0,255))
 
             
 
@@ -374,3 +386,87 @@ while True:
 for cam_id, pipe in pipelines.items():
     pipe.stop()
 window.close()
+
+
+"""
+{0: 'person',
+ 1: 'bicycle',
+ 2: 'car',
+ 3: 'motorcycle',
+ 4: 'airplane',
+ 5: 'bus',
+ 6: 'train',
+ 7: 'truck',
+ 8: 'boat',
+ 9: 'traffic light',
+ 10: 'fire hydrant',
+ 11: 'stop sign',
+ 12: 'parking meter',
+ 13: 'bench',
+ 14: 'bird',
+ 15: 'cat',
+ 16: 'dog',
+ 17: 'horse',
+ 18: 'sheep',
+ 19: 'cow',
+ 20: 'elephant',
+ 21: 'bear',
+ 22: 'zebra',
+ 23: 'giraffe',
+ 24: 'backpack',
+ 25: 'umbrella',
+ 26: 'handbag',
+ 27: 'tie',
+ 28: 'suitcase',
+ 29: 'frisbee',
+ 30: 'skis',
+ 31: 'snowboard',
+ 32: 'sports ball',
+ 33: 'kite',
+ 34: 'baseball bat',
+ 35: 'baseball glove',
+ 36: 'skateboard',
+ 37: 'surfboard',
+ 38: 'tennis racket',
+ 39: 'bottle',
+ 40: 'wine glass',
+ 41: 'cup',
+ 42: 'fork',
+ 43: 'knife',
+ 44: 'spoon',
+ 45: 'bowl',
+ 46: 'banana',
+ 47: 'apple',
+ 48: 'sandwich',
+ 49: 'orange',
+ 50: 'broccoli',
+ 51: 'carrot',
+ 52: 'hot dog',
+ 53: 'pizza',
+ 54: 'donut',
+ 55: 'cake',
+ 56: 'chair',
+ 57: 'couch',
+ 58: 'potted plant',
+ 59: 'bed',
+ 60: 'dining table',
+ 61: 'toilet',
+ 62: 'tv',
+ 63: 'laptop',
+ 64: 'mouse',
+ 65: 'remote',
+ 66: 'keyboard',
+ 67: 'cell phone',
+ 68: 'microwave',
+ 69: 'oven',
+ 70: 'toaster',
+ 71: 'sink',
+ 72: 'refrigerator',
+ 73: 'book',
+ 74: 'clock',
+ 75: 'vase',
+ 76: 'scissors',
+ 77: 'teddy bear',
+ 78: 'hair drier',
+ 79: 'toothbrush'}
+"""

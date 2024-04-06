@@ -2,12 +2,13 @@
     Assumption: objects are detected in >1 cameras
     Each camera generate a pointcloud in world coordinate, which has a corresponding label
     global_list <label, id>
+    # bundle adjustment
     for each label in each cam:
         if label appear in other cams:
             for same label in each other cams:
                 while(all same label):
                     compute pointcloud distance (downsample?)
-                    if distance < threshold && argmin(all same label):
+                    if distance < threshold && argmin(all same label (distance && rgb feature)):
                         instance <label, id> append pointcloud volumn_bounding
                         cam.delete this
         else:
@@ -23,18 +24,27 @@
 
     tracking filter on each feature
 
-2. generate model
+2. tracking filter on each feature:
+    read paper about multi object tracking
+
+3. reID:
+    if feature id ++ in a new frame:
+        compare this feature with previous features
+
+        
+
+3. generative model
 
 for id in global_list:
     if model_list[<label,id>] == none
         nerf generate 3d model using multi view -> expand a little to include more points?
         use the model shape to constrain pointclouds
         cut out invalid points
+        bundle adjustment
         return feature
     
 tracking filter on each feature
 
-3. orientation
 
 
 

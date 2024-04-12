@@ -3,18 +3,14 @@ import torch
 import torch.nn as nn
 
 def get_emb(sin_inp):
-    """
-    Gets a base embedding for one dimension with sin and cos intertwined
-    """
+
     emb = torch.stack((sin_inp.sin(), sin_inp.cos()), dim=-1)
     return torch.flatten(emb, -2, -1)
 
 
 class PositionalEncoding1D(nn.Module):
     def __init__(self, channels):
-        """
-        :param channels: The last dimension of the tensor you want to apply pos emb to.
-        """
+
         super(PositionalEncoding1D, self).__init__()
         self.org_channels = channels
         channels = int(np.ceil(channels / 2) * 2)
@@ -24,10 +20,6 @@ class PositionalEncoding1D(nn.Module):
         self.register_buffer("cached_penc", None, persistent=False)
 
     def forward(self, tensor):
-        """
-        :param tensor: A 3d tensor of size (batch_size, x, ch)
-        :return: Positional Encoding Matrix of size (batch_size, x, ch)
-        """
         if len(tensor.shape) != 3:
             raise RuntimeError("The input tensor has to be 3d!")
 
@@ -48,9 +40,7 @@ class PositionalEncoding1D(nn.Module):
 
 class PositionalEncodingPermute1D(nn.Module):
     def __init__(self, channels):
-        """
-        Accepts (batchsize, ch, x) instead of (batchsize, x, ch)
-        """
+
         super(PositionalEncodingPermute1D, self).__init__()
         self.penc = PositionalEncoding1D(channels)
 
@@ -66,9 +56,6 @@ class PositionalEncodingPermute1D(nn.Module):
 
 class PositionalEncoding2D(nn.Module):
     def __init__(self, channels):
-        """
-        :param channels: The last dimension of the tensor you want to apply pos emb to.
-        """
         super(PositionalEncoding2D, self).__init__()
         self.org_channels = channels
         channels = int(np.ceil(channels / 4) * 2)
@@ -78,10 +65,6 @@ class PositionalEncoding2D(nn.Module):
         self.register_buffer("cached_penc", None, persistent=False)
 
     def forward(self, tensor):
-        """
-        :param tensor: A 4d tensor of size (batch_size, x, y, ch)
-        :return: Positional Encoding Matrix of size (batch_size, x, y, ch)
-        """
         if len(tensor.shape) != 4:
             raise RuntimeError("The input tensor has to be 4d!")
 
@@ -110,9 +93,6 @@ class PositionalEncoding2D(nn.Module):
 
 class PositionalEncodingPermute2D(nn.Module):
     def __init__(self, channels):
-        """
-        Accepts (batchsize, ch, x, y) instead of (batchsize, x, y, ch)
-        """
         super(PositionalEncodingPermute2D, self).__init__()
         self.penc = PositionalEncoding2D(channels)
 
@@ -128,9 +108,7 @@ class PositionalEncodingPermute2D(nn.Module):
 
 class PositionalEncoding3D(nn.Module):
     def __init__(self, channels):
-        """
-        :param channels: The last dimension of the tensor you want to apply pos emb to.
-        """
+
         super(PositionalEncoding3D, self).__init__()
         self.org_channels = channels
         channels = int(np.ceil(channels / 6) * 2)
@@ -142,10 +120,6 @@ class PositionalEncoding3D(nn.Module):
         self.register_buffer("cached_penc", None, persistent=False)
 
     def forward(self, tensor):
-        """
-        :param tensor: A 5d tensor of size (batch_size, x, y, z, ch)
-        :return: Positional Encoding Matrix of size (batch_size, x, y, z, ch)
-        """
         if len(tensor.shape) != 5:
             raise RuntimeError("The input tensor has to be 5d!")
 
@@ -175,12 +149,20 @@ class PositionalEncoding3D(nn.Module):
         self.cached_penc = emb[None, :, :, :, :orig_ch].repeat(batch_size, 1, 1, 1, 1)
         return self.cached_penc
 
+def position_id():
+    """
+    tobe changed
+    """
+    PE(x,y,z,2i) = sin(x/10000^(6i/D))
+    PE(x,y,z,2i+1) = cos(x/10000^(6i/D))
+    PE(x,y,z,2j+D/3) = sin(y/10000^(6j/D))
+    PE(x,y,z,2j+1+D/3) = cos(y/10000^(6j/D))
+    PE(x,y,z,2k+2D/3) = sin(z/10000^(6k/D))
+    PE(x,y,z,2k+1+2D/3) = cos(z/10000^(6k/D))
 
 class PositionalEncodingPermute3D(nn.Module):
     def __init__(self, channels):
-        """
-        Accepts (batchsize, ch, x, y, z) instead of (batchsize, x, y, z, ch)
-        """
+
         super(PositionalEncodingPermute3D, self).__init__()
         self.penc = PositionalEncoding3D(channels)
 
@@ -196,17 +178,12 @@ class PositionalEncodingPermute3D(nn.Module):
 
 class Summer(nn.Module):
     def __init__(self, penc):
-        """
-        :param model: The type of positional encoding to run the summer on.
-        """
+
         super(Summer, self).__init__()
         self.penc = penc
 
     def forward(self, tensor):
-        """
-        :param tensor: A 3, 4 or 5d tensor that matches the model output size
-        :return: Positional Encoding Matrix summed to the original tensor
-        """
+
         penc = self.penc(tensor)
         assert (
             tensor.size() == penc.size()
@@ -215,5 +192,5 @@ class Summer(nn.Module):
         )
         return tensor + penc
     
-
+# appendix
     # https://github.com/tatp22/multidim-positional-encoding/tree/master

@@ -2,6 +2,7 @@ import socket
 import cv2
 import numpy as np
 import pickle
+import torch
 import rgbd_multicam
 import modules
 from position_encode import PositionalEncodingPermute3D
@@ -32,9 +33,12 @@ try:
 
         # 在这里进行图像处理和嵌入
 
-        concat_data = modules.dataconcat(bboxes,depth, color, track)
+        # tobe changed
         p_enc_3d = PositionalEncodingPermute3D(11)
-        embedding_vector = p_enc_3d(concat_data)
+
+        embedding_vector = p_enc_3d(depth,color)
+        concat_data = modules.dataconcat(bboxes,depth, color, track)
+        output = clusterNet()
 
         # embedding_vector = np.random.rand(100)
 

@@ -30,7 +30,29 @@ def handle_client(client_socket, client_address):
                 cv2.imshow(f'camera_received from {client_address}', frame)
                 cv2.waitKey(1)
                 client_socket.send("image has been received!".encode('utf-8'))
-def similarity():
+
+def overlap (box1, box2, thred=0.3):
+    # box: [x+ x- y+ y- z+ z-]
+    # return bool
+def similarity(collected_3ds,self.boxes_list):
+    # collected_3ds: {cam: [[class conf x+ x- y+ y- z+ z-]]}
+    # boxes_list:{class: [conf, [xyz],1][conf, [xyz],0])...
+    latest_box_list = {} # {class: [conf, [xyz],2]}
+    for key, boxes in collected_3ds.items():
+        for box in boxes: #[class conf x+ x- y+ y- z+ z-]
+            cur_class = box[0]
+            pre_boxes = boxes_list[cur_class] #[conf, [xyz],2],...,[conf, [xyz],1],...,[conf, [xyz],0],...
+            for pb in pre_boxes:#[conf, [xyz],1]
+                if overlap(box[2:],pb[1]):
+                    # delete pb from boxes_list
+                    # 
+
+
+            
+
+
+
+    
     # compute similarity and reduce dimention
     # output: [cla, embed]
     # https://github.com/MCG-NKU/SERE

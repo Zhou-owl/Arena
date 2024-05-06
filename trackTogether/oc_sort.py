@@ -234,8 +234,10 @@ class OCSort(object):
         inds_low = confs > 0.1
         inds_high = confs < self.det_thresh
         inds_second = np.logical_and(inds_low, inds_high)  # self.det_thresh > score > 0.1, for second matching
+        # conf between low and high need second detecton
         dets_second = output_results[inds_second]  # detections for second matching
         remain_inds = confs > self.det_thresh
+        # conf greater than high is valid
         dets = output_results[remain_inds]
 
         # get predicted locations from existing trackers.

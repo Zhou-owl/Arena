@@ -251,6 +251,7 @@ while True:
                 if conf>=conf_thred:
                     # center_y = box[1] + (box[3] - box[1])*3/4 # row from`` up left
                     mask_points = np.int32([mask])
+                    
                     cv2.fillPoly(marked, mask_points, (255,0,0))
                     x_length = box[2] - box[0]
                     y_length = box[3] - box[1]
@@ -281,6 +282,10 @@ while True:
 
                     seg_mask = np.zeros(depth_frames[cam_id].shape, dtype=bool)
                     cols, rows = zip(*mask_points[0])
+                    if len(cols) == 0 or len(rows)==0:
+                        cols = [int(i) for i in range(center_x_1 -x_length*1 /8, center_x_1 + x_length*1 /8)]
+                        rows = [int(i) for i in range(center_y_1 -y_length*1 /8, center_y_1 + y_length*1 /8)]
+                        
                     seg_mask[rows,cols] = True
                     depth_scale = cam_profiles[cam_id].get_device().first_depth_sensor().get_depth_scale()
 

@@ -37,11 +37,12 @@ def overlap (box1, box2, thred=0.3):
 def similarity(collected_3ds,self.boxes_list):
     # collected_3ds: {cam: [[class conf x+ x- y+ y- z+ z-]]}
     # boxes_list:{class: [conf, [xyz],1][conf, [xyz],0])...
+    
     latest_box_list = {} # {class: [conf, [xyz],2]}
     for key, boxes in collected_3ds.items():
         for box in boxes: #[class conf x+ x- y+ y- z+ z-]
             cur_class = box[0]
-            pre_boxes = boxes_list[cur_class] #[conf, [xyz],2],...,[conf, [xyz],1],...,[conf, [xyz],0],...
+            pre_boxes = self.boxes_list[cur_class] #[conf, [xyz],2],...,[conf, [xyz],1],...,[conf, [xyz],0],...
             for pb in pre_boxes:#[conf, [xyz],1]
                 if overlap(box[2:],pb[1]):
                     # delete pb from boxes_list

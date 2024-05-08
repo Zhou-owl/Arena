@@ -67,3 +67,29 @@ def process_boxes(boxes):
             valid_boxes.append(boxes[i])
 
     return valid_boxes
+
+import numpy as np
+
+def remove_outliers(points):
+    """
+    Removes the 10% most distant points from a set based on their Euclidean distance to the centroid.
+    
+    Parameters:
+        points (numpy.ndarray): An array of points where each row represents a point and columns represent dimensions.
+    
+    Returns:
+        numpy.ndarray: An array containing the filtered points, excluding the 10% outliers.
+    """
+    # Calculate the centroid of the points
+    centroid = np.mean(points, axis=0)
+
+    # Calculate distances from the centroid
+    distances = np.linalg.norm(points - centroid, axis=1)
+
+    # Determine the 90th percentile distance
+    threshold_distance = np.percentile(distances, 90)
+
+    # Filter out points beyond the 90th percentile distance
+    filtered_points = points[distances <= threshold_distance]
+
+    return filtered_points

@@ -26,47 +26,10 @@ def iou_3d(box1, box2):
     # Calculate IOU
     return intersection_volume / union_volume
 
-def process_boxes(boxes):
-    n = len(boxes)
-    valid_boxes = []
+def feature_similarity(feature1, feature2):
+    #todo
+    pass
 
-    # First, sort boxes by confidence for easier processing
-    boxes.sort(key=lambda x: x[2], reverse=True)
-
-    # Compare each box with every other box
-    for i in range(n):
-        is_fake = False
-        for j in range(n):
-            if i != j:
-                iou = iou_3d(boxes[i], boxes[j])
-
-                # Same origin, same class, IOU > 0.4
-                if boxes[i][0] == boxes[j][0] and boxes[i][1] == boxes[j][1] and iou > 0.4:
-                    is_fake = True
-                    break
-
-                # Different origin, same class, IOU > 0.2
-                if boxes[i][0] != boxes[j][0] and boxes[i][1] == boxes[j][1] and iou > 0.2:
-                    is_fake = True
-                    # Create an average box
-                    average_box = [
-                        'average',  # new origin
-                        boxes[i][1],  # class
-                        max(boxes[i][2], boxes[j][2]),  # max confidence
-                        (boxes[i][3] + boxes[j][3]) / 2,  # average xmax
-                        (boxes[i][4] + boxes[j][4]) / 2,  # average xmin
-                        (boxes[i][5] + boxes[j][5]) / 2,  # average ymax
-                        (boxes[i][6] + boxes[j][6]) / 2,  # average ymin
-                        (boxes[i][7] + boxes[j][7]) / 2,  # average zmax
-                        (boxes[i][8] + boxes[j][8]) / 2   # average zmin
-                    ]
-                    valid_boxes.append(average_box)
-                    break
-
-        if not is_fake:
-            valid_boxes.append(boxes[i])
-
-    return valid_boxes
 
 import numpy as np
 

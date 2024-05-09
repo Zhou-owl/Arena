@@ -7,9 +7,9 @@ import math
 from collections import deque
 from cluster import *
 
-iou_smcam_smcla = 0.5
-iou_dfcam_smcla = 0.3
-high_conf_thred = 0.85
+high_iou = 0.8
+low_iou = 0.2
+feature_thred = 0.8
 class Server:
     def __init__(self, ip='', port=8088):
         self.server_ip = ip
@@ -53,7 +53,7 @@ class Server:
             client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
             client_handler.start()
     
-    def select_cur_frame(self, thred = 0.1):
+    def select_curr_frame(self, thred = 0.1):
         # call this function to save cur frame data into cur_boxes_list
         min_timestamp = math.inf
         self.cur_boxes_list = {} #empty the cur list
@@ -70,37 +70,87 @@ class Server:
                         self.cur_boxes_list[cla] = []
                         self.cur_boxes_list[cla].append([client_address, conf, xmax,xmin,ymax,ymin,zmax,zmin])
         
-    def select_valid_cur_boxes(self):
+    def valid_curr_boxes(self):
         # call this after update cur_boxes_list
         for cla,boxes in self.cur_boxes_list.items():
             n = len(boxes)
             boxes.sort(key=lambda x: x[1], reverse=True) # sort boxes by conf from high to low
-            for i in range(n):
-                is_fake = False
-                for j in range(i+1,n):
-                    iou = iou_3d(boxes[i], boxes[j])
+            skip = set()
+            merged = []
 
-                    # Same origin, same class, 3dIOU > iou_smcam_smcla, then fake
-                    if boxes[i][0] == boxes[j][0] and iou > iou_smcam_smcla and boxes[j][1]<high_conf_thred:
-                        is_fake = True
-                        break
+            for i in range(n):
+                if i in skip:
+                    continue
+                current = boxes[i]
+                for j in range(i+1,n):
+                    if j in skip:
+                        continue
+                    iou = iou_3d(boxes[i], boxes[j])
                     #Different origin, same class, IOU > 0.2
-                    if boxes[i][0] != boxes[j][0] and iou > iou_dfcam_smcla:
-                        is_fake = True
-                        # Create an average box
-                        average_box = [
-                            'average',  # new origin
-                            cla,  # class
-                            max(boxes[i][1], boxes[j][1]),  # max confidence
-                            (boxes[i][2] + boxes[j][2]) / 2, 
-                            (boxes[i][3] + boxes[j][3]) / 2,  
-                            (boxes[i][4] + boxes[j][4]) / 2,  
-                            (boxes[i][5] + boxes[j][5]) / 2,  
-                            (boxes[i][6] + boxes[j][6]) / 2, 
-                            (boxes[i][7] + boxes[j][7]) / 2, 
-                        ]
-                        valid_boxes.append(average_box)
-                        break
+                    if boxes[i][0] != boxes[j][0]:
+                        if iou >= high_iou:
+                            is_fake = True
+                            # Create an average box
+                            average_box = [
+                                current[0],  # higher conf origin
+                                cla,  # class
+                                max(boxes[i][1], boxes[j][1]),  # max confidence
+                                (boxes[i][2]*boxes[i][1] + boxes[j][2]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][3]*boxes[i][1] + boxes[j][3]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][4]*boxes[i][1] + boxes[j][4]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][5]*boxes[i][1] + boxes[j][5]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][6]*boxes[i][1] + boxes[j][6]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][7]*boxes[i][1] + boxes[j][7]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                            ]
+                            current = average_box
+                            skip.add(boxes[j])
+                        elif iou>low_iou:
+                            if feature_similarity(boxes[i][8],boxes[j][8]) > feature_thred:
+                                average_box = [
+                                current[0],  # higher conf origin
+                                cla,  # class
+                                max(boxes[i][1], boxes[j][1]),  # max confidence
+                                (boxes[i][2]*boxes[i][1] + boxes[j][2]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][3]*boxes[i][1] + boxes[j][3]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][4]*boxes[i][1] + boxes[j][4]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][5]*boxes[i][1] + boxes[j][5]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][6]*boxes[i][1] + boxes[j][6]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                                (boxes[i][7]*boxes[i][1] + boxes[j][7]*boxes[j][1]) / (boxes[i][1]+boxes[j][1]), 
+                            ]
+                            current = average_box
+                            skip.add(boxes[j])
+                merged.append(current)
+            self.cur_boxes_list[cla] = merged
+
+    def integerate_pre_boxes(self):
+        # call this after validate cur_boxes_list
+        if not self.pre_boxes_list:
+            self.pre_boxes_list = self.cur_boxes_list
+            for cla,boxes in self.pre_boxes_list.items():
+                self.pre_boxes_list[cla] = [[boxes,-1]]
+        
+        else:
+            # process cur and pre
+
+
+
+            # move cur to pre and delete earlist
+            for cla, boxes in self.pre_boxes_list.values(): #boxes: [[boxes,-1],...,[boxes,-2],...]
+                boxes = [[x[0],-2] if x[1]==-1 else x for x in boxes if x[1]!=-2]
+                    
+            for cla, boxes in self.cur_boxes_list.values():
+                self.pre_boxes_list[cla].append([boxes,-1])
+        
+        
+        
+    
+        
+            
+    
+                
+
+                        
+
 
 
 

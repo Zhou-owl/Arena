@@ -246,7 +246,7 @@ while True:
                 if values['chair']:
                     if label != 56:
                         continue
-                # xmin, ymin, xmax, ymax
+
                 # todo: change conf to slide bar
                 if conf>=conf_thred:
                     # center_y = box[1] + (box[3] - box[1])*3/4 # row from`` up left

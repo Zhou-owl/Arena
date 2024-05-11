@@ -66,8 +66,14 @@ try:
 
         if values['detect']:
             # pred bbox [[cla, conf,[xmin, ymin, xmax ymax]],]
-            bbox_model, pred, formated_bounding_boxes = bbox_2D_prediction(color_image, thred = boxes_conf_thred)
+            bbox_model, pred = bbox_2D_prediction(color_image, thred = boxes_conf_thred)
             [d_mtx, d_dist, c_dist, c_mtx] = cam_params_dict
+            
+            # if do segmentation
+            masks = obj_segmentation(pred)
+            bbox_list = [fbb[2] for fbb in formated_bounding_boxes]
+            input_boxes = torch.tensor(bounding_boxes, device=predictor.device)
+
             for count,fbb in enumerate(formated_bounding_boxes):
                 label = fbb[0]
                 conf = fbb[1]

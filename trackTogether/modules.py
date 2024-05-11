@@ -13,7 +13,7 @@ from examples import *
 # with np.load("./intrinsic_calib.npz") as X:
 #     mtx, dist = [X[i] for i in ('mtx', 'dist')]
 
-def bbox_2D_prediction(input_frame, thred = 0.4):
+def bbox_2D_prediction(input_frame, thred = 0.3):
     # change this function to swith bbox detector
     # input_frame: color image
     # return: bbox - [[cla, conf,[xmin, ymin, xmax ymax]],]
@@ -21,14 +21,14 @@ def bbox_2D_prediction(input_frame, thred = 0.4):
     checkpoint_file = './yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth'
     model = init_detector(config_file, checkpoint_file, device='cuda')
     pred = inference_detector(model,input_frame)
-    bounding_boxes = []
-    for cla in pred:
+    for i,cla in enumerate(pred):
         if len(cla):
-            for each in cla:
-                if each[-1] > 0.4:
-                    bounding_boxes.append([cla,each[-1],each[:4]])
-    return model, pred, bounding_boxes
-
+            for each in cla[:]:
+                if each[-1] > thred:
+                    pred[i].remove(each)
+    return model, pred
+def obj_segmentation(pred):
+    # change this function to swith bbox segmentation
 def find_devices(id=0):
     device_list = rs.context()
     device_serials = [i.get_info(rs.camera_info.serial_number) for i in device_list.devices]

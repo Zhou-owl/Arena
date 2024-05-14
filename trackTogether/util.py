@@ -104,6 +104,7 @@ def computeExtrinsic(img_path, mtx, dist, dX, dY):
 #dist: distortion values
 #rays: nx1x3 np.float32 array
 def pixel2ray(points, mtx, dist):
+    points = np.float32(points) 
     undist_points = cv2.undistortPoints(points, mtx, dist)
     rays = cv2.convertPointsToHomogeneous(undist_points)
     #print("rays: ", rays)

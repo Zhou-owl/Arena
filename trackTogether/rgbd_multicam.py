@@ -266,7 +266,7 @@ while True:
                     dir_cam_1 = pixel2ray(point_1, c_mtx, c_dist).reshape((3,1))
 
                     origin_w = -np.dot(rot.T, (np.array([[0],[0],[0]])- tras))
-                    dir_w_1 = np.dot(rot.T, dir_cam_1)    
+                    dir_w_1 = np.dot(rot.T, dir_cam_1)
                     normal = np.array([[0,0,1]])
                     plane_x0 = np.array([[1,0,0]]).T
 

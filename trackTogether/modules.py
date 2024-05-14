@@ -9,26 +9,114 @@ from segment_anything import sam_model_registry, SamPredictor
 from util import *
 from mmdet.apis import init_detector, inference_detector
 from examples import *
+from segment_anything import sam_model_registry, SamPredictor
 
-# with np.load("./intrinsic_calib.npz") as X:
-#     mtx, dist = [X[i] for i in ('mtx', 'dist')]
+
+config_file = './yolox_l_8x8_300e_coco.py'
+checkpoint_file = './yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth'
+sam_checkpoint = "sam_vit_h_4b8939.pth"
+model_type = "vit_h"
+device = "cuda"
+
+model = init_detector(config_file, checkpoint_file, device=device)
+sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+sam.to(device=device)
+
+predictor = SamPredictor(sam)
 
 def bbox_2D_prediction(input_frame, thred = 0.3):
     # change this function to swith bbox detector
     # input_frame: color image
     # return: bbox - [[cla, conf,[xmin, ymin, xmax ymax]],]
-    config_file = './yolox_l_8x8_300e_coco.py'
-    checkpoint_file = './yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth'
-    model = init_detector(config_file, checkpoint_file, device='cuda')
     pred = inference_detector(model,input_frame)
     for i,cla in enumerate(pred):
         if len(cla):
-            for each in cla[:]:
-                if each[-1] > thred:
-                    pred[i].remove(each)
+            new_cla = [each for each in cla if each[-1] >= thred]
+            pred[i] = np.array(new_cla)
+           
     return model, pred
-def obj_segmentation(pred):
+
+def obj_segmentation(pred, img):
     # change this function to swith bbox segmentation
+    bounding_boxes = []
+    format_box = []
+    for i,cla in enumerate(pred):
+        if len(cla):
+            for each in cla:
+                    bounding_boxes.append(each[:4])
+                    format_box.append([i,each[4],each[:4]])
+    input_boxes = torch.tensor(bounding_boxes, device=predictor.device)
+
+    transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, img.shape[:2])
+    if len(transformed_boxes):
+        image = predictor.set_image(img,"RGB")
+
+        masks, _, _ = predictor.predict_torch(
+            point_coords=None,
+            point_labels=None,
+            boxes=transformed_boxes,
+            multimask_output=False,
+        )
+    return masks, format_box
+
+def get_3d_bbox(depth_frame, masks, bboxes, d_mtx, d_dist, rot, tras, depth_scale):
+    world_3d_bbox = []
+    centers = []
+    text_str = []
+    for mask, bbox in zip(masks, bboxes):
+        mask = mask.cpu().numpy()[0]
+        
+        masked_depth_image = np.where(mask, depth_frame, 0).astype(float) * depth_scale
+
+        
+        non_zero_depths = masked_depth_image[masked_depth_image > 0]
+        lower_percentile = np.percentile(non_zero_depths, 5)
+        upper_percentile = np.percentile(non_zero_depths, 95)
+        central_depth_mask = (masked_depth_image >= lower_percentile) & (masked_depth_image <= upper_percentile)
+        central_masked_depth_image = np.where(central_depth_mask, masked_depth_image, 0)
+        non_zero_depths = central_masked_depth_image[central_masked_depth_image>0]
+
+        non_zero_indices = np.nonzero(central_masked_depth_image)
+        y_indices, x_indices = non_zero_indices
+        center_y, center_x = np.mean(y_indices), np.mean(x_indices)
+        center_ray = pixel2ray(np.array([[center_x, center_y]]), d_mtx, d_dist).reshape(3,-1)
+        origin_w = -np.dot(rot.T, (np.array([[0],[0],[0]])- tras))
+        dir_w = np.dot(rot.T, center_ray) 
+        average_depth = np.mean(non_zero_depths)
+        center_world_coords = origin_w - average_depth * dir_w
+
+        indices = np.array(non_zero_indices).T 
+        dir_cam = pixel2ray(indices,d_mtx,d_dist).reshape(3,-1) 
+        dir_w = np.dot(rot.T, dir_cam) # 3,num
+        world_coords = origin_w - (non_zero_depths.reshape(1, -1) * dir_w)
+
+        # Find extrema points to define the bounding box in world coordinates
+        xmin, xmax = np.min(world_coords[0, :]), np.max(world_coords[0, :])
+        ymin, ymax = np.min(world_coords[1, :]), np.max(world_coords[1, :])
+        zmin, zmax = np.min(world_coords[2, :]), np.max(world_coords[2, :])
+        world_3d_bbox.append([bbox[0],bbox[1],[xmin,xmax,ymin,ymax,zmin,zmax]])
+        temp = np.around(center_world_coords,decimals=2)
+        text_str_temp = str(temp.tolist())
+        centers.append(int(center_x),int(center_y))
+        text_str.append(text_str_temp)
+
+        # move the plot drawing outside the function
+        cv2.rectangle(depth_colormap, (int(bbox[2][0]), int(bbox[2][1])), (int(bbox[2][2]), int(bbox[2][3])), (255, 255, 0), 2)
+        cv2.circle(depth_colormap, (int(center_x),int(center_y)), 6, (0, 255, 255), 3)
+        cv2.putText(depth_colormap,text_str_temp,(int(center_x),int(center_y)),thickness=2,fontFace=cv2.FONT_HERSHEY_SIMPLEX,fontScale=0.5,color=(255,255,255))
+
+
+    return world_3d_bbox, text_str, centers
+
+
+    
+    
+
+
+
+
+
+
 def find_devices(id=0):
     device_list = rs.context()
     device_serials = [i.get_info(rs.camera_info.serial_number) for i in device_list.devices]
@@ -103,9 +191,9 @@ def load_multicam_params():
 
 def init_gui():
     layout = [
-        [sg.Image(filename='', key='color0',size=(640,360)),sg.Image(filename='', key='color6',size=(640,360))],
+        [sg.Image(filename='', key='color',size=(640,360))],
         [sg.Text('fps = 0',  key="text0"),sg.Text('fps = 0',  key="text6")],
-        [sg.Image(filename='', key='depth0',size=(640,360)),sg.Image(filename='', key='depth6',size=(640,360))],
+        [sg.Image(filename='', key='depth',size=(640,360))],
         [sg.Checkbox('Tripod', key='tripod')],
         [sg.Checkbox('FindTag', key='tag')],
         [sg.Checkbox('2d bbox detection', key='detect')],
@@ -163,111 +251,111 @@ def show_box(box, ax):
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0,0,0,0), lw=2))  
 
-import sys
-sys.path.append("..")
-from segment_anything import sam_model_registry, SamPredictor
+# import sys
+# sys.path.append("..")
+# from segment_anything import sam_model_registry, SamPredictor
 
-sam_checkpoint = "sam_vit_h_4b8939.pth"
-model_type = "vit_h"
+# sam_checkpoint = "sam_vit_h_4b8939.pth"
+# model_type = "vit_h"
 
-device = "cuda"
+# device = "cuda"
 
-sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-sam.to(device=device)
+# sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+# sam.to(device=device)
 
-predictor = SamPredictor(sam)
-
-
-
-config_file = './yolox_l_8x8_300e_coco.py'
-checkpoint_file = './yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth'
-model = init_detector(config_file, checkpoint_file, device='cuda')
+# predictor = SamPredictor(sam)
 
 
-at_detector = Detector(families='tag36h11')
 
-capture_root = './capture'
-layout = [
-    [sg.Image(filename='', key='raw',size=(500,400))],
-    [sg.Text('fps = 0',  key="text")],
-    [sg.Image(filename='', key='pred')],
-    [sg.Radio('None', 'Radio', True, size=(10, 1))],
-    [sg.Checkbox('Tripod', key='tripod')],
-    [sg.Checkbox('Calibration', key='calib')],
-    [sg.Checkbox('FindTag', key='tag')],
-    [sg.Checkbox('Chair (check Tag and uncheck Calib)', key='chair')],
-    [sg.Button('Capture', size=(20, 3))],
-    [sg.Button('Exit', size=(20, 3))]
-]
+# config_file = './yolox_l_8x8_300e_coco.py'
+# checkpoint_file = './yolox_l_8x8_300e_coco_20211126_140236-d3bd2b23.pth'
+# model = init_detector(config_file, checkpoint_file, device='cuda')
 
-window = sg.Window('camera',
-            layout,
-            location=(1000, 500),
-            resizable=True,
-            element_justification='c',
-            font=("Arial Bold",20),
-            finalize=True)
 
-cap = cv2.VideoCapture("/dev/v4l/by-id/usb-Intel_R__RealSense_TM__Depth_Camera_455_Intel_R__RealSense_TM__Depth_Camera_455_247523061064-video-index0")
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1000)  
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 800)  
+# at_detector = Detector(families='tag36h11')
 
-count=1
+# capture_root = './capture'
+# layout = [
+#     [sg.Image(filename='', key='raw',size=(500,400))],
+#     [sg.Text('fps = 0',  key="text")],
+#     [sg.Image(filename='', key='pred')],
+#     [sg.Radio('None', 'Radio', True, size=(10, 1))],
+#     [sg.Checkbox('Tripod', key='tripod')],
+#     [sg.Checkbox('Calibration', key='calib')],
+#     [sg.Checkbox('FindTag', key='tag')],
+#     [sg.Checkbox('Chair (check Tag and uncheck Calib)', key='chair')],
+#     [sg.Button('Capture', size=(20, 3))],
+#     [sg.Button('Exit', size=(20, 3))]
+# ]
 
-def bbox_predict(frame):
-    dst = frame
-    bounding_boxes = []
-    bboxes_3d = []
-    # model prediction
+# window = sg.Window('camera',
+#             layout,
+#             location=(1000, 500),
+#             resizable=True,
+#             element_justification='c',
+#             font=("Arial Bold",20),
+#             finalize=True)
 
-    pred = inference_detector(model,dst)
-    for cla in pred:
-        if len(cla):
-            for each in cla:
-                if each[-1] > conf_thred:
-                    bounding_boxes.append(each[:4])
-    #model.show_result(dst, pred, wait_time=1)
-    img = model.show_result(dst, pred,wait_time=0,score_thr=0.4)
-    input_boxes = torch.tensor(bounding_boxes, device=predictor.device)
+# cap = cv2.VideoCapture("/dev/v4l/by-id/usb-Intel_R__RealSense_TM__Depth_Camera_455_Intel_R__RealSense_TM__Depth_Camera_455_247523061064-video-index0")
+# cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1000)  
+# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 800)  
 
-    transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, img.shape[:2])
+# count=1
 
-    masks = []
-    if len(transformed_boxes):
-        image = predictor.set_image(img,"RGB")
+# def bbox_predict(frame):
+#     dst = frame
+#     bounding_boxes = []
+#     bboxes_3d = []
+#     # model prediction
 
-        masks, _, _ = predictor.predict_torch(
-            point_coords=None,
-            point_labels=None,
-            boxes=transformed_boxes,
-            multimask_output=False,
-        )
-        for mask in masks:
-            mask = mask.cpu().numpy()
-            color = np.array([30, 144, 255])
-            h, w = mask.shape[-2:]
-            maskcolor = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-            masked_image = np.where(maskcolor==0,img, maskcolor * 0.6 + img * 0.4)
-            print(np.max(masked_image))
-            img = masked_image
-    return img, masks
+#     pred = inference_detector(model,dst)
+#     for cla in pred:
+#         if len(cla):
+#             for each in cla:
+#                 if each[-1] > conf_thred:
+#                     bounding_boxes.append(each[:4])
+#     #model.show_result(dst, pred, wait_time=1)
+#     img = model.show_result(dst, pred,wait_time=0,score_thr=0.4)
+#     input_boxes = torch.tensor(bounding_boxes, device=predictor.device)
 
-while count:
-    event, values = window.read(timeout=0, timeout_key='timeout')
-    #read from cam
-    ret, frame = cap.read()
+#     transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, img.shape[:2])
+
+#     masks = []
+#     if len(transformed_boxes):
+#         image = predictor.set_image(img,"RGB")
+
+#         masks, _, _ = predictor.predict_torch(
+#             point_coords=None,
+#             point_labels=None,
+#             boxes=transformed_boxes,
+#             multimask_output=False,
+#         )
+#         for mask in masks:
+#             mask = mask.cpu().numpy()
+#             color = np.array([30, 144, 255])
+#             h, w = mask.shape[-2:]
+#             maskcolor = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+#             masked_image = np.where(maskcolor==0,img, maskcolor * 0.6 + img * 0.4)
+#             print(np.max(masked_image))
+#             img = masked_image
+#     return img, masks
+
+# while count:
+#     event, values = window.read(timeout=0, timeout_key='timeout')
+#     #read from cam
+#     ret, frame = cap.read()
 
     
-    img, masks = bbox_predict(frame)
-    try:
-        img = img * masks
-    except:
-        pass
-    rawbytes = cv2.imencode('.png', frame[::2,::2,:])[1].tobytes()
-    window['raw'].update(data=rawbytes)
-    predbytes = cv2.imencode('.png', img)[1].tobytes()
-    window['pred'].update(data=predbytes)
-cap.release()
+#     img, masks = bbox_predict(frame)
+#     try:
+#         img = img * masks
+#     except:
+#         pass
+#     rawbytes = cv2.imencode('.png', frame[::2,::2,:])[1].tobytes()
+#     window['raw'].update(data=rawbytes)
+#     predbytes = cv2.imencode('.png', img)[1].tobytes()
+#     window['pred'].update(data=predbytes)
+# cap.release()
 
 #     marked = pred[0].plot()  
 #     boxes = pred[0].boxes.xyxy.tolist()

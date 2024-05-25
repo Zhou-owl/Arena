@@ -59,13 +59,13 @@ def obj_segmentation(pred, img):
         )
     return masks, format_box
 
-def get_3d_bbox(depth_frame, masks, bboxes, d_mtx, d_dist, rot, tras, depth_scale):
+def get_3d_bbox(color_frame,depth_frame, masks, bboxes, d_mtx, d_dist, rot, tras, depth_scale):
     world_3d_bbox = []
     centers = []
     text_str = []
     for mask, bbox in zip(masks, bboxes):
         mask = mask.cpu().numpy()[0]
-        
+
         masked_depth_image = np.where(mask, depth_frame, 0).astype(float) * depth_scale
 
         
@@ -97,16 +97,16 @@ def get_3d_bbox(depth_frame, masks, bboxes, d_mtx, d_dist, rot, tras, depth_scal
         world_3d_bbox.append([bbox[0],bbox[1],[xmin,xmax,ymin,ymax,zmin,zmax]])
         temp = np.around(center_world_coords,decimals=2)
         text_str_temp = str(temp.tolist())
-        centers.append(int(center_x),int(center_y))
+        centers.append((int(center_x),int(center_y)))
         text_str.append(text_str_temp)
 
         # move the plot drawing outside the function
-        cv2.rectangle(depth_colormap, (int(bbox[2][0]), int(bbox[2][1])), (int(bbox[2][2]), int(bbox[2][3])), (255, 255, 0), 2)
-        cv2.circle(depth_colormap, (int(center_x),int(center_y)), 6, (0, 255, 255), 3)
-        cv2.putText(depth_colormap,text_str_temp,(int(center_x),int(center_y)),thickness=2,fontFace=cv2.FONT_HERSHEY_SIMPLEX,fontScale=0.5,color=(255,255,255))
+        cv2.rectangle(color_frame, (int(bbox[2][0]), int(bbox[2][1])), (int(bbox[2][2]), int(bbox[2][3])), (255, 255, 0), 2)
+        cv2.circle(color_frame, (int(center_x),int(center_y)), 6, (0, 255, 255), 3)
+        cv2.putText(color_frame,text_str_temp,(int(center_x),int(center_y)),thickness=2,fontFace=cv2.FONT_HERSHEY_SIMPLEX,fontScale=0.5,color=(255,255,255))
 
 
-    return world_3d_bbox, text_str, centers
+    return world_3d_bbox, text_str, centers, color_frame
 
 
     
@@ -194,9 +194,8 @@ def init_gui():
         [sg.Image(filename='', key='color',size=(640,360))],
         [sg.Text('fps = 0',  key="text0"),sg.Text('fps = 0',  key="text6")],
         [sg.Image(filename='', key='depth',size=(640,360))],
-        [sg.Checkbox('Tripod', key='tripod')],
-        [sg.Checkbox('FindTag', key='tag')],
         [sg.Checkbox('2d bbox detection', key='detect')],
+        [sg.Checkbox('send to server', key='toserver')],
         [sg.Checkbox('Chair only', key='chair')],
         [sg.Checkbox('Single tracker', key='tracker')],
         [sg.Button('Capture')],
@@ -211,8 +210,7 @@ def init_gui():
                 finalize=True)
     return layout, window
 
-def init_tag_detector(gray, cam_params_c):
-    at_detector = Detector(families='tag36h11')
+def update_tag_detector(at_detector,gray, cam_params_c):
     tags = at_detector.detect(gray,estimate_tag_pose=True,camera_params=cam_params_c,tag_size=0.15)
     if len(tags) > 0:
         return tags[0]
@@ -251,6 +249,29 @@ def show_box(box, ax):
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0,0,0,0), lw=2))  
 
+def draw_tag_axis(img, tag, rot, trans,I_c_mtx):
+    cv2.circle(img, tuple(tag.corners[0].astype(int)), 4, (255, 0, 0), 2) # left-top
+    cv2.circle(img, tuple(tag.corners[1].astype(int)), 4, (255, 0, 0), 2) # right-top
+
+    cv2.circle(img, tuple(tag.corners[2].astype(int)), 4, (255, 0, 0), 2) # right-bottom
+    cv2.circle(img, tuple(tag.corners[3].astype(int)), 4, (255, 0, 0), 2) # left-bottom
+
+    cv2.circle(img, tuple(tag.center.astype(int)), 4, (255, 0, 0), 4)
+
+    P = np.concatenate((rot, trans), axis=1) #相机投影矩阵
+
+    P = np.matmul(I_c_mtx,P)
+    x = np.matmul(P,np.array([[-1],[0],[0],[1]]))  
+    x = x / x[2]
+    y = np.matmul(P,np.array([[0],[-1],[0],[1]]))
+    y = y / y[2]
+    z = np.matmul(P,np.array([[0],[0],[-1],[1]]))
+    z = z / z[2]
+    cv2.line(img, tuple(tag.center.astype(int)), tuple(x[:2].reshape(-1).astype(int)), (0,0,255), 2) #x轴红色
+    cv2.line(img, tuple(tag.center.astype(int)), tuple(y[:2].reshape(-1).astype(int)), (0,255,0), 2) #y轴绿色
+    cv2.line(img, tuple(tag.center.astype(int)), tuple(z[:2].reshape(-1).astype(int)), (255,0,0), 2) #z轴蓝色
+ 
+    return img
 # import sys
 # sys.path.append("..")
 # from segment_anything import sam_model_registry, SamPredictor

@@ -1,5 +1,6 @@
 import socket
 import cv2
+import datetime
 import numpy as np
 import threading
 import pickle
@@ -11,7 +12,7 @@ high_iou = 0.7
 low_iou = 0.2
 feature_thred = 0.8
 class Server:
-    def __init__(self, ip="192.168.1.113", port=8088):
+    def __init__(self, ip="127.0.0.1", port=8088):
         self.server_ip = ip
         self.port = port
         self.client_data = {} # cam_addr:[raw]
@@ -27,24 +28,38 @@ class Server:
         print(f"Server started at {self.server_ip} on port {self.port}")
 
     def handle_client(self, client_socket, client_address):
-        recv_data_whole = bytes()
+        recv_data_whole = b''
         while True:
-            recv_data = client_socket.recv(3000000)
-            if len(recv_data) == 0:
-                print('Client disconnected:', client_address)
+            recv_data_whole = b''
+            length_data = client_socket.recv(4)
+            if not length_data:
                 break
-            recv_data_whole += recv_data
-            try:
+            length = int.from_bytes(length_data, byteorder='big')
+              # Initialize frame_data as empty bytes
+
+            # Continue to receive data until the full frame is received
+            while len(recv_data_whole) < length:
+                packet = client_socket.recv(min(1024, length - len(recv_data_whole)))
+                if not packet:
+                    break
+                recv_data_whole += packet
+            if len(recv_data_whole) < length:
+                print("Incomplete frame received")
+            try:    
                 new_frame_box = pickle.loads(recv_data_whole) # if all data are received
                 # [timestamp, [cla, conf, [xyzbounder]]]...
                 if client_address not in self.client_data:
                     self.client_data[client_address] = deque() 
                 self.client_data[client_address].append(new_frame_box) 
                 recv_data_whole = bytes()
-                client_socket.send("Image has been received!".encode('utf-8'))
+                current_datetime = datetime.datetime.now()
+                current_timestamp = current_datetime.timestamp()
+                reply_string = "received "+format(new_frame_box[0], ".2f")+" from "+str(client_address)+" at "+format(current_timestamp, ".2f")
+                print(reply_string)
+                client_socket.send(reply_string.encode('utf-8'))
             except pickle.UnpicklingError:
                 # Data not fully received, continue accumulating
-                continue
+                print("fail to deserialize data")
             
     def start_server(self):
         while True:

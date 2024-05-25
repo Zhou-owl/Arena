@@ -5,6 +5,7 @@ import numpy as np
 import threading
 import pickle
 import math
+import time
 from collections import deque
 from cluster import *
 
@@ -15,6 +16,7 @@ class Server:
     def __init__(self, ip="127.0.0.1", port=8088):
         self.server_ip = ip
         self.port = port
+        self.interval = 1
         self.client_data = {} # cam_addr:[raw]
         self.shape = [720, 1280, 3]
         self.tracker = {}
@@ -28,7 +30,6 @@ class Server:
         print(f"Server started at {self.server_ip} on port {self.port}")
 
     def handle_client(self, client_socket, client_address):
-        recv_data_whole = b''
         while True:
             recv_data_whole = b''
             length_data = client_socket.recv(4)
@@ -62,12 +63,20 @@ class Server:
                 print("fail to deserialize data")
             
     def start_server(self):
+        threading.Thread(target=self.process_data).start()  # Start the processing thread
         while True:
             client_socket, client_address = self.tcp_server_socket.accept()
             print(f"Connection from {client_address} has been established!")
             client_handler = threading.Thread(target=self.handle_client, args=(client_socket, client_address))
             client_handler.start()
-    
+
+    def process_data(self):
+        while True:
+            with self.data_lock:
+                # Process your data here
+                pass
+            time.sleep(self.interval)
+
     def select_curr_frame(self, thred = 0.1):
         # call this function to save cur frame data into cur_boxes_list
         min_timestamp = math.inf

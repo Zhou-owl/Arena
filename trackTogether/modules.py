@@ -272,6 +272,8 @@ def draw_tag_axis(img, tag, rot, trans,I_c_mtx):
     cv2.line(img, tuple(tag.center.astype(int)), tuple(z[:2].reshape(-1).astype(int)), (255,0,0), 2) #z轴蓝色
  
     return img
+
+
 # import sys
 # sys.path.append("..")
 # from segment_anything import sam_model_registry, SamPredictor

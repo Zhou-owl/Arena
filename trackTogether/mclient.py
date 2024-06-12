@@ -2,12 +2,11 @@ import socket
 import cv2
 import numpy as np
 import pickle
-import torch
 import datetime
 from modules import *
 
 # config
-is_first_run = False
+is_first_run = True
 device_id = 0
 boxes_conf_thred = 0.4
 target_object_list = [0,5,39,56,58,67,73]
@@ -15,7 +14,7 @@ target_object_list = [0,5,39,56,58,67,73]
 #init client 
 tcp_client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_ip = "127.0.0.1"
-server_port = 8088
+server_port = 8188
 tcp_client_socket.connect((server_ip, server_port))
 
 # init params
@@ -135,7 +134,6 @@ window.close()
         #     print('Video Reading Finished!')
         #     break
 
-        # # 在这里进行图像处理和嵌入
 
         # # tobe changed
         # p_enc_3d = PositionalEncodingPermute3D(11)
@@ -153,7 +151,6 @@ window.close()
 
 
         # tcp_client_socket.send(frame.tobytes())
-        # # 接收服务器回传信息
         # recv_data = tcp_client_socket.recv(1024)
         # print(recv_data.decode('utf-8'))
 

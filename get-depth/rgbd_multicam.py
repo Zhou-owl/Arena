@@ -11,7 +11,7 @@ from util import *
 from examples import *
 
 
-is_first_run = False
+is_first_run = 1
 conf_thred = 0.5
 
 # define model
@@ -318,7 +318,6 @@ while True:
                     t_dist = np.sum(masked_depth_image/valid_num)
 
                     print('t:',t_dist)
-
                     intersection_w = origin_w - t_dist * dir_w
                     intersection_w = np.around(intersection_w,decimals=2)
     

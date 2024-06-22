@@ -11,6 +11,8 @@ from ultralytics import YOLO
 from oc_sort import OCSort
 from util import *
 from examples import *
+import numpy as np
+
 # frames = []
 # # Load a model
 model_tripod = YOLO('./runs/detect/train/weights/best.pt')  
@@ -226,7 +228,7 @@ while True:
                     center_x_1 = box[0] + x_length /2 # col from up left
                     center_y_1 = box[3]
 
-
+                    # colored image
                     cv2.circle(marked, (int(center_x_1),int(center_y_1)), 6, (0, 255, 255), 3)
                     point_1 = [[center_x_1,center_y_1]]
                     point_1 = np.array(point_1,dtype='float')
@@ -254,7 +256,7 @@ while True:
 
                     masked_depth_image = np.where(seg_mask, depth_image, 0).astype(float) * depth_scale
 
-
+                    # center
                     center_x = int(center_x_1)
                     center_y = int(box[1] + y_length/2)
                     #center_y = int(center_y_1 - y_length/2)
@@ -285,9 +287,19 @@ while True:
                     
                     # depth = depth_image[center_y_min:center_y_max,center_x_min:center_x_max].astype(float)
                     # depth = depth * depth_scale
-                    
+
+
+                    non_zero_masked_depth_image = masked_depth_image[masked_depth_image > 0]
+                    low_percentile = np.percentile(non_zero_masked_depth_image, 10)
+                    high_percentile = np.percentile(non_zero_masked_depth_image, 90)
+                    filtered_depth_image = np.where(
+                        (masked_depth_image >= low_percentile) & (masked_depth_image <= high_percentile),
+                        masked_depth_image,
+                        0
+                    )
+
                     valid_num = np.count_nonzero(masked_depth_image)
-                    t_dist = np.sum(masked_depth_image/valid_num)
+                    t_dist = np.sum(filtered_depth_image) / valid_num
 
                     print('t:',t_dist)
 

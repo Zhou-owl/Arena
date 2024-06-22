@@ -251,7 +251,10 @@ class DeviceManager:
             serial = dev_info[0]
             device_intrinsics[serial] = {}
             for key, value in frameset.items():
-                device_intrinsics[serial][key] = value.get_profile().as_video_stream_profile().get_intrinsics()
+                try:
+                    device_intrinsics[serial][key] = value.get_profile().as_video_stream_profile().get_intrinsics()
+                except:
+                    pass
         return device_intrinsics
 
     def get_depth_to_color_extrinsics(self, frames):

@@ -1,5 +1,4 @@
 import socket
-import cv2
 import numpy as np
 import threading
 import pickle
@@ -9,7 +8,90 @@ from collections import deque
 from cluster import *
 from arena import *
 
-
+def class_def():
+    return {
+    "0": "person",
+    "1": "bicycle",
+    "2": "car",
+    "3": "motorcycle",
+    "4": "airplane",
+    "5": "bus",
+    "6": "train",
+    "7": "truck",
+    "8": "boat",
+    "9": "traffic light",
+    "10": "fire hydrant",
+    "11": "stop sign",
+    "12": "parking meter",
+    "13": "bench",
+    "14": "bird",
+    "15": "cat",
+    "16": "dog",
+    "17": "horse",
+    "18": "sheep",
+    "19": "cow",
+    "20": "elephant",
+    "21": "bear",
+    "22": "zebra",
+    "23": "giraffe",
+    "24": "backpack",
+    "25": "umbrella",
+    "26": "handbag",
+    "27": "tie",
+    "28": "suitcase",
+    "29": "frisbee",
+    "30": "skis",
+    "31": "snowboard",
+    "32": "sports ball",
+    "33": "kite",
+    "34": "baseball bat",
+    "35": "baseball glove",
+    "36": "skateboard",
+    "37": "surfboard",
+    "38": "tennis racket",
+    "39": "bottle",
+    "40": "wine glass",
+    "41": "cup",
+    "42": "fork",
+    "43": "knife",
+    "44": "spoon",
+    "45": "bowl",
+    "46": "banana",
+    "47": "apple",
+    "48": "sandwich",
+    "49": "orange",
+    "50": "brocolli",
+    "51": "carrot",
+    "52": "hot dog",
+    "53": "pizza",
+    "54": "donut",
+    "55": "cake",
+    "56": "chair",
+    "57": "couch",
+    "58": "potted plant",
+    "59": "bed",
+    "60": "dining table",
+    "61": "toilet",
+    "62": "tv",
+    "63": "laptop",
+    "64": "mouse",
+    "65": "remote",
+    "66": "keyboard",
+    "67": "cell phone",
+    "68": "microwave",
+    "69": "oven",
+    "70": "toaster",
+    "71": "sink",
+    "72": "refrigerator",
+    "73": "book",
+    "74": "clock",
+    "75": "vase",
+    "76": "scissors",
+    "77": "teddy bear",
+    "78": "hair drier",
+    "79": "toothbrush"
+  }
+class_name = class_def()
 data_lock = threading.Lock()
 class Server:
     def __init__(self, ip="127.0.0.1", port=8188):
@@ -187,8 +269,13 @@ def periodic():
     # cur_boxes_list -> cla: [[origin, conf, [bounders]],...]
     with data_lock:
         cur_boxes = server.cur_boxes_list
-    box_list = []
-    text_list = []
+    # box_list = []
+    # text_list = []
+    obj_ids = scene.all_objects.copy()
+    for obj_id in obj_ids:
+        if 'box' in obj_id or 'text' in obj_id:
+            obj = scene.get_persisted_obj(obj_id)
+            scene.delete_object(obj)
     for cla, cla_boxes in cur_boxes.items():
         for cla_box in cla_boxes:
             bounder =  cla_box[2]
@@ -206,24 +293,22 @@ def periodic():
                 material= Material(opacity=0.2, transparent=True, visible=True),
                 persist=True
             )
-            box_list.append(box)
+            # box_list.append(box)
             scene.add_object(box)
             my_text = Text(
                 object_id=str(cla)+"text_conf"+str(cla_box[1]),
-                text="str(cla)",
+                text=class_name[str(cla)],
                 align="center",
                 position=(-x_center, y_center+y_length, -z_center),
                 scale=(0.6,0.6,0.6),
                 color=(100,255,255),
                 persist = True
             )
-            text_list.append(my_text)
+            # text_list.append(my_text)
             scene.add_object(my_text)
+    time.sleep(0.1)
 
-    time.sleep(0.2)
-    for b,t in zip(box_list,text_list):
-        scene.delete_object(b)
-        scene.delete_object(t)
+
 
 
 scene.run_tasks()

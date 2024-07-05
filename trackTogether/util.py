@@ -104,13 +104,14 @@ def computeExtrinsic(img_path, mtx, dist, dX, dY):
 #dist: distortion values
 #rays: nx1x3 np.float32 array
 def pixel2ray(points, mtx, dist):
-    points = np.float32(points) 
+    points = np.float32(points).reshape(-1,1,2)
     undist_points = cv2.undistortPoints(points, mtx, dist)
     rays = cv2.convertPointsToHomogeneous(undist_points)
     #print("rays: ", rays)
-    norm = np.sum(rays**2, axis = -1)**.5
+    norm = np.linalg.norm(rays, axis=-1, keepdims=True)
+    # norm = np.sum(rays**2, axis = -1)**.5
     #print("norm: ", norm)
-    rays = rays/norm.reshape(-1, 1, 1)
+    rays = (rays/norm).reshape(-1, 3).T
     return rays
 
 

@@ -6,7 +6,7 @@ import datetime
 from modules import *
 
 # config
-is_first_run = True
+is_first_run = False
 device_id = 0
 boxes_conf_thred = 0.4
 target_object_list = [0,5,39,56,58,67,73]
@@ -93,7 +93,7 @@ while True:
         #compute depth
         # formated_bounding_boxes: [ [bbox[0],bbox[1],[xmin,xmax,ymin,ymax,zmin,zmax]],[] ]
         formated_bounding_boxes, text_str, centers, depth_marked = get_3d_bbox(
-            color_image, depth_image, masks,format_2d_bbox,d_mtx, d_dist, rot, trans, depth_scale)
+            color_image, depth_image, masks,format_2d_bbox,cam_params_dict, rot, trans, depth_scale)
         
         current_datetime = datetime.datetime.now()
         current_timestamp = current_datetime.timestamp()

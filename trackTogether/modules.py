@@ -59,10 +59,11 @@ def obj_segmentation(pred, img):
         )
     return masks, format_box
 
-def get_3d_bbox(color_frame,depth_frame, masks, bboxes, d_mtx, d_dist, rot, tras, depth_scale):
+def get_3d_bbox(color_frame,depth_frame, masks, bboxes, cam_params_dict, rot, tras, depth_scale):
     world_3d_bbox = []
     centers = []
     text_str = []
+    [d_mtx, d_dist, c_dist, c_mtx] = cam_params_dict
     for mask, bbox in zip(masks, bboxes):
         mask = mask.cpu().numpy()[0]
 
@@ -79,16 +80,16 @@ def get_3d_bbox(color_frame,depth_frame, masks, bboxes, d_mtx, d_dist, rot, tras
         non_zero_indices = np.nonzero(central_masked_depth_image)
         y_indices, x_indices = non_zero_indices
         center_y, center_x = np.mean(y_indices), np.mean(x_indices)
-        center_ray = pixel2ray(np.array([[center_x, center_y]]), d_mtx, d_dist).reshape(3,-1)
+        center_ray = pixel2ray(np.array([[center_x, center_y]]), c_mtx, c_dist)
         origin_w = -np.dot(rot.T, (np.array([[0],[0],[0]])- tras))
         dir_w = np.dot(rot.T, center_ray) 
         average_depth = np.mean(non_zero_depths)
         center_world_coords = origin_w - average_depth * dir_w
 
-        indices = np.array(non_zero_indices).T 
-        dir_cam = pixel2ray(indices,d_mtx,d_dist).reshape(3,-1) 
+        indices = np.column_stack((x_indices,y_indices))
+        dir_cam = pixel2ray(indices,c_mtx,c_dist) 
         dir_w = np.dot(rot.T, dir_cam) # 3,num
-        world_coords = origin_w - (non_zero_depths.reshape(1, -1) * dir_w)
+        world_coords = origin_w - (non_zero_depths * dir_w)
 
         # Find extrema points to define the bounding box in world coordinates
         xmin, xmax = np.min(world_coords[0, :]), np.max(world_coords[0, :])
@@ -168,6 +169,7 @@ def init_params():
 
 def get_cam_params(cam_id, is_first_run):
     if is_first_run:
+        print("Get camera params")
         init_params()
     with np.load(cam_id+".npz") as X:
         I_d_mtx, I_d_dist, I_c_dist, I_c_mtx = [X[i] for i in ('I_d_mtx', 'I_d_dist', 'I_c_dist', 'I_c_mtx')]

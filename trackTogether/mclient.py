@@ -91,7 +91,7 @@ while True:
         depth_scale = cam_profiles.get_device().first_depth_sensor().get_depth_scale()
 
         #compute depth
-        # formated_bounding_boxes: [ [bbox[0],bbox[1],[xmin,xmax,ymin,ymax,zmin,zmax]],[] ]
+        # formated_bounding_boxes: [ [bbox[0],bbox[1],[xcenter,ycenter,zcenter,xlen,ylen,zlen]],[] ]
         formated_bounding_boxes, text_str, centers, depth_marked = get_3d_bbox(
             color_image, depth_image, masks,format_2d_bbox,cam_params_dict, rot, trans, depth_scale)
         

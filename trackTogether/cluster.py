@@ -1,15 +1,16 @@
 def iou_3d(box1, box2):
     # Unpack the coordinates
-    x1_max, x1_min, y1_max, y1_min, z1_max, z1_min = box1
-    x2_max, x2_min, y2_max, y2_min, z2_max, z2_min = box2
+    xcenter1,ycenter1,zcenter1,xlen1,ylen1,zlen1 = box1
+    xcenter2,ycenter2,zcenter2,xlen2,ylen2,zlen2 = box2
+
 
     # Calculate the coordinates of the intersection box
-    x_max = min(x1_max, x2_max)
-    x_min = max(x1_min, x2_min)
-    y_max = min(y1_max, y2_max)
-    y_min = max(y1_min, y2_min)
-    z_max = min(z1_max, z2_max)
-    z_min = max(z1_min, z2_min)
+    x_max = min(xcenter1+xlen1/2, xcenter2+xlen2/2)
+    x_min = max(xcenter1-xlen1/2, xcenter2-xlen2/2)
+    y_max = min(ycenter1+ylen1/2, ycenter2+ylen2/2)
+    y_min = max(ycenter1-ylen1/2, ycenter2-ylen2/2)
+    z_max = min(zcenter1+zlen1/2, zcenter2+zlen2/2)
+    z_min = max(zcenter1-zlen1/2, zcenter2-zlen2/2)
 
     # Check if there is an intersection
     if x_min >= x_max or y_min >= y_max or z_min >= z_max:
@@ -17,8 +18,8 @@ def iou_3d(box1, box2):
 
     # Calculate volumes
     intersection_volume = (x_max - x_min) * (y_max - y_min) * (z_max - z_min)
-    box1_volume = (x1_max - x1_min) * (y1_max - y1_min) * (z1_max - z1_min)
-    box2_volume = (x2_max - x2_min) * (y2_max - y2_min) * (z2_max - z2_min)
+    box1_volume = xlen1 * ylen1 * zlen1
+    box2_volume = xlen2 * ylen2 * zlen2
 
     # Calculate union
     union_volume = box1_volume + box2_volume - intersection_volume

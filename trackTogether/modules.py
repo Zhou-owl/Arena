@@ -95,7 +95,14 @@ def get_3d_bbox(color_frame,depth_frame, masks, bboxes, cam_params_dict, rot, tr
         xmin, xmax = np.min(world_coords[0, :]), np.max(world_coords[0, :])
         ymin, ymax = np.min(world_coords[1, :]), np.max(world_coords[1, :])
         zmin, zmax = np.min(world_coords[2, :]), np.max(world_coords[2, :])
-        world_3d_bbox.append([bbox[0],bbox[1],[xmin,xmax,ymin,ymax,zmin,zmax]])
+        xcenter = (xmin + xmax)/2
+        ycenter = (ymin + ymax)/2
+        zcenter = (zmin + zmax)/2
+        xlen = xmax - xmin
+        ylen = ymax - ymin
+        zlen = zmax - zlen
+
+        world_3d_bbox.append([bbox[0],bbox[1],[xcenter,ycenter,zcenter,xlen,ylen,zlen]])
         temp = np.around(center_world_coords,decimals=2)
         text_str_temp = str(temp.tolist())
         centers.append((int(center_x),int(center_y)))

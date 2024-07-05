@@ -219,11 +219,14 @@ class Server:
                     # todo: set 2 iou threds and apply color similarity
                 num = len(merged)
                 new_bounders = boxes[i][2]
-                for m in merged:
-                    this_conf = boxes[j][1]
-                    sum_conf += this_conf
-                    this_bounders = boxes[m][2]
-                    new_bounders = [x + this_conf * y for x, y in zip(new_bounders, this_bounders)]
+
+                # TODO
+
+                # for m in merged:
+                #     this_conf = boxes[j][1]
+                #     sum_conf += this_conf
+                #     this_bounders = boxes[m][2]
+                #     new_bounders[:3] = [x + this_conf * y for x, y in zip(new_bounders[:3], this_bounders[:3])]
                 
                 new_bounders = [i/sum_conf for i in new_bounders]
                 new_conf = sum_conf / num
@@ -306,7 +309,6 @@ def periodic():
             )
             # text_list.append(my_text)
             scene.add_object(my_text)
-    time.sleep(0.1)
 
 
 
